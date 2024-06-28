@@ -17,16 +17,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ComposeCompilerApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,24 +60,57 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+class Quest(var name: String, var category: Int,
+            var weight: Int, var deadline: String,
+            var notes: String) {
+}
+
+@Composable
+fun Dashboard( modifier: Modifier = Modifier) {
+    Surface(color = MaterialTheme.colorScheme.background) {
+        Column() {
+            Row(modifier = modifier.padding(100.dp)) {
+                // TODO Add character/monster images and landscape
+            }
+            Row(modifier = modifier.padding(50.dp)) {
+                // TODO Add character stats and monster requirements
+            }
+            QuestList()
+        }
+        Box(modifier = Modifier.fillMaxSize()) {
+            FloatingActionButton(onClick = {},
+                modifier = Modifier.align(Alignment.BottomEnd).padding(30.dp)
+            ) {
+                // TODO add icon here
+            }
+        }
+    }
+}
+
+@Preview
+@Composable
+fun DashboardPreview() {
+    Dashboard()
+}
+
 @Composable
 fun Quest( questName: String, modifier: Modifier = Modifier ) {
     Surface(color = MaterialTheme.colorScheme.primary,
-        modifier = modifier.clip(RoundedCornerShape(15.dp)).border(0.5.dp, MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(15.dp))
+        modifier = modifier.padding(vertical = 3.dp).clip(RoundedCornerShape(15.dp)).border(0.5.dp, MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(15.dp))
     ) {
         Row( modifier = modifier.fillMaxWidth().heightIn(0.dp, 75.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = modifier.padding(horizontal = 16.dp).weight(2f),
+            Column(modifier = modifier.padding(start = 16.dp),
             ) {
-                Text("September 3")
-                Text("3:00 PM")
+                Text("Sep. 3")
+                Text("12:00 PM")
             }
-            Text(questName, modifier = modifier.weight(3f))
-            Surface(color = MaterialTheme.colorScheme.secondary, modifier = modifier.weight(0.75f)) {
+            Text(questName, modifier = modifier.weight(3.75f).padding(start = 12.dp))
+            Surface(color = MaterialTheme.colorScheme.secondary, modifier = modifier.weight(0.8f)) {
                 Image(
-                    painter = painterResource(R.drawable.star2),
+                    painter = painterResource(R.drawable.star2), // TODO variable number???
                     contentDescription = "stars",
                     modifier = modifier.fillMaxHeight()
                 )
@@ -85,9 +121,28 @@ fun Quest( questName: String, modifier: Modifier = Modifier ) {
 
 @Preview
 @Composable
-fun Quest() {
+fun QuestPreview() {
     QuestLogTheme {
         Quest("A task that you should really do already")
+    }
+}
+
+@Composable
+fun QuestList( modifier: Modifier = Modifier,
+               quests: List<String> = List(20) { "This is quest #$it And a bunc oi other text" }
+) {
+    LazyColumn(modifier = modifier.padding(vertical = 4.dp, horizontal = 4.dp)) {
+        items(items = quests) { quest ->
+            Quest(questName = quest)
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun QuestListPreview() {
+    QuestLogTheme {
+        QuestList()
     }
 }
 
@@ -191,7 +246,3 @@ fun GreetingsPreview() {
 }
 
 
-class Quest(var name: String, var category: Int,
-            var weight: Int, var deadline: String,
-            var notes: String) {
-}
