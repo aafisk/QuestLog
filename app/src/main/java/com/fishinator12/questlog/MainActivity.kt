@@ -62,14 +62,15 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Dashboard()
+//                    Dashboard()
+                    NewQuest( quest = Quest() )
                 }
             }
         }
     }
 }
 
-class Quest(var name: String = "New Quest", var category: Int = 1,
+class Quest(var name: String = "", var category: Int = 1,
             var weight: Int = 1, var deadline: String = "",
             var notes: String = "") {
 }
@@ -137,16 +138,16 @@ fun Quest( quest: Quest, modifier: Modifier = Modifier ) {
 @Composable
 fun QuestPreview() {
     QuestLogTheme {
-        Quest("A task that you should really do already")
+        Quest( Quest() )
     }
 }
 
 @Composable
 fun StarImage( num: Int, modifier: Modifier = Modifier) {
-    val imageName = "star$num"
+    var imageName = "star$num"
     val context = LocalContext.current
 
-    val imageId = remember {
+    var imageId = remember(num) {
         context.resources.getIdentifier(imageName, "drawable", context.packageName)
     }
 
@@ -180,10 +181,10 @@ fun NewQuest( modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     var questName by remember { mutableStateOf(quest.name) }
-    var sliderPosition by remember { mutableIntStateOf(quest.weight) }
+    var weight by remember { mutableIntStateOf(quest.weight) }
     var selectedCategory by remember { mutableIntStateOf(quest.category - 1) }
     var questNotes by remember { mutableStateOf(quest.notes) }
-    var categories = remember {
+    val categories = remember {
         (1..4).mapNotNull { i ->
             val colorName = "category$i"
             val colorId = context.resources.getIdentifier(colorName, "color", context.packageName)
@@ -198,7 +199,7 @@ fun NewQuest( modifier: Modifier = Modifier,
     Surface() {
         Column(verticalArrangement = Arrangement.Center) {
             Text(text = quest.name)
-            TextField(value = "", onValueChange = { questName = it },
+            TextField(value = questName, onValueChange = { questName = it },
                 placeholder = { Text("Quest Name...") })
             Row() {
                 Surface(color = categories[selectedCategory],
@@ -208,8 +209,11 @@ fun NewQuest( modifier: Modifier = Modifier,
                 ) {
                     StarImage(quest.weight)
                 }
-                Slider( value = sliderPosition.toFloat(),
-                    onValueChange = { sliderPosition = it.toInt() },
+//                Text("$weight")
+//                Text(text = quest.weight.toString())
+                Slider( value = weight.toFloat(),
+                    onValueChange = { weight = it.toInt()
+                        quest.weight = it.toInt()},
                     valueRange = 1f..7f,
                     steps = 5
                 )
@@ -219,13 +223,14 @@ fun NewQuest( modifier: Modifier = Modifier,
                     Box( modifier = modifier
                         .size(50.dp)
                         .background(color)
+                        .weight(1f)
                         .clickable {
                             selectedCategory = i
                         }
                     )
                 }
             }
-            TextField(value = questNotes, onValueChange = { questNotes = it },
+            TextField(value = questNotes, modifier = modifier.fillMaxWidth(), onValueChange = { questNotes = it },
                 placeholder = { Text("Notes...") })
         }
     }
