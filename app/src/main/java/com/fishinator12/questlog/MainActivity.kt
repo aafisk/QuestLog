@@ -112,33 +112,65 @@ enum class EnemyTypes {
     GOLEM
 }
 
-class Quest(var name: String = "", var category: Int = 1,
+class Quest(var name: String = "Quest Name 1", var category: Int = 1,
             var weight: Int = 1, var deadline: String = "",
-            var notes: String = ""
-) {
-    @Composable
-    fun CatagoryColors(context: Context): List<Color> {
-        return remember {
-            (1..4).mapNotNull { i ->
-                val colorName = "category$i"
-                val colorId = context.resources.getIdentifier(colorName, "color", context.packageName)
-                if (colorId != 0) {
-                    Color(context.resources.getColor(colorId, context.theme))
-                } else {
-                    null
-                }
-            }
+            var notes: String = "Some notes or something") { }
+
+class Character() {
+    var level = 1
+    var experience = 15
+
+    fun AddExperience(exp: Int) {
+        if (experience + exp > 50) {
+            level += 1
+            experience = (experience + exp) % 50
+        } else {
+            experience += exp
         }
     }
 }
 
-class Enemy(var type: EnemyTypes, var requirements: List<Int>) {
+class Enemy() {
+    var type: EnemyTypes
+    var requirements: MutableList<Int>
+    var exp: Int = 5
+    var alive: Boolean
+    
     init {
         // Randomly select an enemy type
         type = EnemyTypes.entries.toTypedArray()[Random.nextInt(EnemyTypes.entries.size)]
 
         // Randomly assign requirements
-        requirements = List(4) { Random.nextInt(0, 8) }
+        requirements = MutableList(4) { Random.nextInt(0, 8) }
+
+        // Randomly set exp
+        exp = Random.nextInt(5, 16)
+
+        alive = true
+    }
+
+    fun updateRequirement(number: Int, index: Int) {
+        requirements[index] = requirements[index] - number
+        alive = checkRequirements()
+    }
+
+    private fun checkRequirements(): Boolean {
+        return requirements.all { it <= 0 }
+    }
+}
+
+@Composable
+fun CatagoryColors(context: Context): List<Color> {
+    return remember {
+        (1..4).mapNotNull { i ->
+            val colorName = "category$i"
+            val colorId = context.resources.getIdentifier(colorName, "color", context.packageName)
+            if (colorId != 0) {
+                Color(context.resources.getColor(colorId, context.theme))
+            } else {
+                null
+            }
+        }
     }
 }
 
@@ -146,10 +178,12 @@ class Enemy(var type: EnemyTypes, var requirements: List<Int>) {
 fun QuestLog( modifier: Modifier = Modifier ) {
     val navController = rememberNavController()
     var questList = remember { mutableStateListOf<Quest>() }
+    var character = Character()
+    var enemy = Enemy()
 
     NavHost(navController = navController, startDestination = "Dashboard") {
         composable("Dashboard") {
-            Dashboard(navController = navController, quests = questList)
+            Dashboard(navController = navController, quests = questList, character = character, enemy = enemy)
         }
         composable("NewQuest") {
             NewQuest(quest = Quest(), navController = navController, quests = questList)
@@ -167,14 +201,17 @@ fun QuestLogPreview() {
 @Composable
 fun Dashboard( modifier: Modifier = Modifier, 
                navController: NavHostController,
-               quests: MutableList<Quest>
+               quests: MutableList<Quest>,
+               character: Character,
+               enemy: Enemy
 ) {
     Surface(color = colorResource(id =  R.color.tan)) {
         Box(modifier = modifier.fillMaxSize()) {
             Image(
                 painter = painterResource(id = R.drawable.background),
                 contentDescription = "background",
-                modifier = modifier.fillMaxWidth()
+                modifier = modifier
+                    .fillMaxWidth()
                     .align(Alignment.TopCenter),
                 contentScale = ContentScale.FillWidth
             )
@@ -207,8 +244,53 @@ fun Dashboard( modifier: Modifier = Modifier,
                 modifier = modifier.fillMaxWidth(),
                 contentScale = ContentScale.FillWidth
             )
-            Row() {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 // TODO Add character stats and monster requirements
+                // Image() {}
+                Column(modifier = Modifier.padding(horizontal = 10.dp)){
+                    Text("Aaron",
+                        modifier = modifier.padding(bottom = 6.dp),
+                        style = TextStyle(fontSize = 22.sp))
+                    Text("Level - ${character.level}", modifier = modifier.padding(bottom = 3.dp))
+                    LinearProgressIndicator( progress = (character.experience.toFloat() / 50),
+                        color = colorResource(id = R.color.category2),
+                        trackColor = colorResource(id = R.color.greyFill),
+                        modifier = modifier
+                            .height(30.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                            .border(1.dp, Color.Black, RoundedCornerShape(5.dp))
+                            .width(200.dp))
+                }
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = modifier.padding(bottom = 5.dp).height(50.dp)) {
+                        if (enemy.requirements[0] > 0)
+                            EnemyRequirement(requirement = enemy.requirements[0],
+                                category = 0,
+                                modifier = Modifier.padding(end = 5.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .border(1.dp, Color.Black, RoundedCornerShape(10.dp)))
+                        if (enemy.requirements[1] > 0)
+                            EnemyRequirement(requirement = enemy.requirements[1],
+                                category = 1,
+                                modifier = Modifier.padding(end = 5.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .border(1.dp, Color.Black, RoundedCornerShape(10.dp)))
+                    }
+                    Row(modifier = modifier.height(50.dp)) {
+                        if (enemy.requirements[2] > 0)
+                            EnemyRequirement(requirement = enemy.requirements[2],
+                                category = 2,
+                                modifier = Modifier.padding(end = 5.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .border(1.dp, Color.Black, RoundedCornerShape(10.dp)))
+                        if (enemy.requirements[3] > 0)
+                            EnemyRequirement(requirement = enemy.requirements[3],
+                                category = 3,
+                                modifier = Modifier.padding(end = 5.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .border(1.dp, Color.Black, RoundedCornerShape(10.dp)))
+                    }
+                }
             }
             QuestList(quests = quests)
         }
@@ -217,7 +299,8 @@ fun Dashboard( modifier: Modifier = Modifier,
                 onClick = { navController.navigate("NewQuest") },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(30.dp)
+                    .padding(30.dp),
+                containerColor = colorResource(id = R.color.greyFill)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add")
             }
@@ -235,7 +318,7 @@ fun DashboardPreview() {
 @Composable
 fun Quest( quest: Quest, modifier: Modifier = Modifier ) {
     val context = LocalContext.current
-    val categories = quest.CatagoryColors(context)
+    val categories = CatagoryColors(context)
 
     Surface(color = colorResource(id =  R.color.greyFill),
         modifier = modifier
@@ -270,6 +353,26 @@ fun QuestPreview() {
     QuestLogTheme {
         Quest( Quest() )
     }
+}
+
+@Composable
+fun EnemyRequirement(requirement: Int, category: Int, modifier: Modifier = Modifier) {
+    val categories = CatagoryColors(LocalContext.current)
+
+    Surface( color = categories[category], modifier = modifier.width(75.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StarImage(1, modifier = Modifier.weight(2f))
+            Text("$requirement",
+                modifier = Modifier.padding(end = 5.dp).weight(1f),
+                style = TextStyle(fontSize = 24.sp))
+        }
+    }
+}
+
+@Preview
+@Composable
+fun EnemyRequirementPreview() {
+    EnemyRequirement(requirement = 6, category = 2)
 }
 
 @Composable
@@ -376,13 +479,13 @@ fun QuestList( modifier: Modifier = Modifier,
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun QuestListPreview() {
-    QuestLogTheme {
-        QuestList()
-    }
-}
+//@Preview(showBackground = true)
+//@Composable
+//fun QuestListPreview() {
+//    QuestLogTheme {
+//        QuestList()
+//    }
+//}
 
 @Composable
 fun NewQuest( modifier: Modifier = Modifier,
@@ -395,7 +498,7 @@ fun NewQuest( modifier: Modifier = Modifier,
     var weight by remember { mutableIntStateOf(quest.weight) }
     var selectedCategory by remember { mutableIntStateOf(quest.category - 1) }
     var questNotes by remember { mutableStateOf(quest.notes) }
-    val categories = quest.CatagoryColors(context)
+    val categories = CatagoryColors(context)
 
     Surface(color = colorResource(id = R.color.tan)) {
         Column(modifier = modifier
@@ -515,6 +618,101 @@ fun NewQuest( modifier: Modifier = Modifier,
     }
 }
 
+@Composable
+fun ViewQuest(modifier: Modifier = Modifier/*, navController: NavHostController*/, quest: Quest) {
+    val context = LocalContext.current
+    val categories = CatagoryColors(context)
+
+    Surface(color = colorResource(id = R.color.tan)) {
+        Column(modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Top Text
+            Text(text = "Quest Info",
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                style = TextStyle(fontSize = 24.sp),
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth())
+
+            // Quest name display
+            Text(text = quest.name,
+                modifier = modifier
+                    .padding(3.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colorResource(id = R.color.creamFill)))
+
+            // Slider Row
+            Surface(color = colorResource(id = R.color.creamFill),
+                modifier = modifier.clip(RoundedCornerShape(15.dp))
+            ) {
+                Row(modifier = modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = categories[quest.category],
+                        modifier = Modifier
+                            .size(75.dp)
+                            .clip(CircleShape)
+                    ) {
+                        StarImage(quest.weight, modifier = modifier
+                            .clip(CircleShape)
+                            .border(1.dp, Color.Black, CircleShape))
+                    }
+                }
+            }
+
+            // Category boxes
+            Text("Category:")
+
+            // Notes text field
+            Text(text = quest.notes,
+                modifier = modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colorResource(id = R.color.creamFill)))
+
+            // Return and Save buttons
+            Spacer(modifier = modifier.weight(1f))
+            Row( modifier = modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.Center, ) {
+                LargeFloatingActionButton(onClick = {
+                    //navController.popBackStack()
+                                                    },
+                    modifier = modifier
+                        .clip(CircleShape)
+                        .border(2.dp, Color.Black, CircleShape),
+                    containerColor = colorResource(id = R.color.greyFill)) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back",
+                        modifier = modifier.scale(2f))
+                }
+                Spacer( modifier = modifier.width(45.dp))
+                LargeFloatingActionButton(onClick = {
+                    //navController.popBackStack()
+                    },
+                    modifier = modifier
+                        .clip(CircleShape)
+                        .border(2.dp, Color.Black, CircleShape),
+                    containerColor = colorResource(id = R.color.greyFill)) {
+                    Icon(Icons.Default.Save, contentDescription = "Save",
+                        modifier = modifier.scale(2f))
+                }
+            }
+        }
+    }
+}
+
+@Preview
+@Composable
+fun ViewQuestPreview() {
+    ViewQuest( quest = Quest() )
+}
+
 //@Composable
 //@Preview()
 //fun NewQuestPreview() {
@@ -525,102 +723,102 @@ fun NewQuest( modifier: Modifier = Modifier,
 //}
 
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    val extraPadding by animateDpAsState(
-        if (expanded) 48.dp else 1.dp,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ), label = "extraPadding"
-    )
-
-    Surface(color = MaterialTheme.colorScheme.primary,
-        modifier = modifier.padding(vertical = 4.dp, horizontal = 8.dp)
-    ) {
-        Row(modifier = Modifier.padding(24.dp)) {
-            Column(modifier = Modifier
-                .weight(1f)
-                .padding(bottom = extraPadding)) {
-                Text("Hello ")
-                Text("$name!")
-            }
-            ElevatedButton(onClick = { expanded = !expanded }) {
-                Text(if (expanded) "Show less" else "Show more")
-            }
-        }
-    }
-}
-
-@Composable
-fun MyApp( modifier: Modifier = Modifier ) {
-    var shouldShowOnboarding by rememberSaveable { mutableStateOf(true) }
-
-    Surface(modifier) {
-        if (shouldShowOnboarding) {
-            OnboardingScreen(onContinueClicked = {shouldShowOnboarding = false})
-        } else {
-            Greetings()
-        }
-    }
-}
-
-@Preview
-@Composable
-fun MyAppPreview() {
-    QuestLogTheme {
-        MyApp(Modifier.fillMaxSize())
-    }
-}
-
-@Composable
-fun OnboardingScreen(modifier: Modifier = Modifier,
-                     onContinueClicked: () -> Unit
-) {
-    var shouldShowOnboarding = remember { mutableStateOf(true) }
-
-    Column( modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("Welcome to the Basics Codelab!")
-        Button(
-            modifier = Modifier.padding(vertical = 24.dp),
-            onClick = onContinueClicked
-        ) {
-            Text("Continue")
-        }
-    }
-}
-
-@Preview(showBackground = true, widthDp = 320, heightDp = 320)
-@Composable
-fun OnboardingPreview() {
-    QuestLogTheme {
-        OnboardingScreen(onContinueClicked = {})
-    }
-}
-
-
-@Composable
-fun Greetings(
-    modifier: Modifier = Modifier,
-    names: List<String> = List(1000) { "$it" }
-) {
-    LazyColumn(modifier = modifier.padding(vertical = 4.dp)) {
-        items(items = names) { name ->
-            Greeting(name = name)
-        }
-    }
-}
-
-@Preview(showBackground = true, widthDp = 320)
-@Composable
-fun GreetingsPreview() {
-    QuestLogTheme {
-        Greetings()
-    }
-}
+//@Composable
+//fun Greeting(name: String, modifier: Modifier = Modifier) {
+//    var expanded by rememberSaveable { mutableStateOf(false) }
+//    val extraPadding by animateDpAsState(
+//        if (expanded) 48.dp else 1.dp,
+//        animationSpec = spring(
+//            dampingRatio = Spring.DampingRatioMediumBouncy,
+//            stiffness = Spring.StiffnessLow
+//        ), label = "extraPadding"
+//    )
+//
+//    Surface(color = MaterialTheme.colorScheme.primary,
+//        modifier = modifier.padding(vertical = 4.dp, horizontal = 8.dp)
+//    ) {
+//        Row(modifier = Modifier.padding(24.dp)) {
+//            Column(modifier = Modifier
+//                .weight(1f)
+//                .padding(bottom = extraPadding)) {
+//                Text("Hello ")
+//                Text("$name!")
+//            }
+//            ElevatedButton(onClick = { expanded = !expanded }) {
+//                Text(if (expanded) "Show less" else "Show more")
+//            }
+//        }
+//    }
+//}
+//
+//@Composable
+//fun MyApp( modifier: Modifier = Modifier ) {
+//    var shouldShowOnboarding by rememberSaveable { mutableStateOf(true) }
+//
+//    Surface(modifier) {
+//        if (shouldShowOnboarding) {
+//            OnboardingScreen(onContinueClicked = {shouldShowOnboarding = false})
+//        } else {
+//            Greetings()
+//        }
+//    }
+//}
+//
+//@Preview
+//@Composable
+//fun MyAppPreview() {
+//    QuestLogTheme {
+//        MyApp(Modifier.fillMaxSize())
+//    }
+//}
+//
+//@Composable
+//fun OnboardingScreen(modifier: Modifier = Modifier,
+//                     onContinueClicked: () -> Unit
+//) {
+//    var shouldShowOnboarding = remember { mutableStateOf(true) }
+//
+//    Column( modifier = modifier.fillMaxSize(),
+//        verticalArrangement = Arrangement.Center,
+//        horizontalAlignment = Alignment.CenterHorizontally
+//    ) {
+//        Text("Welcome to the Basics Codelab!")
+//        Button(
+//            modifier = Modifier.padding(vertical = 24.dp),
+//            onClick = onContinueClicked
+//        ) {
+//            Text("Continue")
+//        }
+//    }
+//}
+//
+//@Preview(showBackground = true, widthDp = 320, heightDp = 320)
+//@Composable
+//fun OnboardingPreview() {
+//    QuestLogTheme {
+//        OnboardingScreen(onContinueClicked = {})
+//    }
+//}
+//
+//
+//@Composable
+//fun Greetings(
+//    modifier: Modifier = Modifier,
+//    names: List<String> = List(1000) { "$it" }
+//) {
+//    LazyColumn(modifier = modifier.padding(vertical = 4.dp)) {
+//        items(items = names) { name ->
+//            Greeting(name = name)
+//        }
+//    }
+//}
+//
+//@Preview(showBackground = true, widthDp = 320)
+//@Composable
+//fun GreetingsPreview() {
+//    QuestLogTheme {
+//        Greetings()
+//    }
+//}
 
 
