@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -49,10 +50,13 @@ import androidx.compose.material.icons.Icons
 //import androidx.compose.material.icons.materialIcons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.DoneOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ComposeCompilerApi
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -112,9 +116,9 @@ enum class EnemyTypes {
     GOLEM
 }
 
-class Quest(var name: String = "Quest Name 1", var category: Int = 1,
+class Quest(var name: String = "", var category: Int = 1,
             var weight: Int = 1, var deadline: String = "",
-            var notes: String = "Some notes or something") { }
+            var notes: String = "") { }
 
 class Character() {
     var level = 1
@@ -178,15 +182,34 @@ fun CatagoryColors(context: Context): List<Color> {
 fun QuestLog( modifier: Modifier = Modifier ) {
     val navController = rememberNavController()
     var questList = remember { mutableStateListOf<Quest>() }
-    var character = Character()
-    var enemy = Enemy()
+    var character by remember { mutableStateOf(Character()) }
+    var enemy by remember { mutableStateOf(Enemy()) }
+    var selectedQuestIndex = remember { mutableStateOf(0) }
+    var selectedQuest = if (questList.isNotEmpty()) questList[selectedQuestIndex.value] else null
 
     NavHost(navController = navController, startDestination = "Dashboard") {
         composable("Dashboard") {
-            Dashboard(navController = navController, quests = questList, character = character, enemy = enemy)
+            Dashboard(navController = navController,
+                quests = questList,
+                character = character,
+                enemy = enemy,
+                selectedQuestIndex = selectedQuestIndex)
         }
+
         composable("NewQuest") {
-            NewQuest(quest = Quest(), navController = navController, quests = questList)
+            NewQuest(quest = Quest(),
+                navController = navController,
+                quests = questList)
+        }
+
+        composable("ViewQuest") {
+            if (selectedQuest != null) {
+                ViewQuest(quest = selectedQuest,
+                    navController = navController,
+                    enemy = enemy,
+                    questList = questList,
+                    questIndex = selectedQuestIndex)
+            }
         }
     }
 }
@@ -203,7 +226,8 @@ fun Dashboard( modifier: Modifier = Modifier,
                navController: NavHostController,
                quests: MutableList<Quest>,
                character: Character,
-               enemy: Enemy
+               enemy: Enemy,
+               selectedQuestIndex: MutableState<Int>
 ) {
     Surface(color = colorResource(id =  R.color.tan)) {
         Box(modifier = modifier.fillMaxSize()) {
@@ -262,17 +286,21 @@ fun Dashboard( modifier: Modifier = Modifier,
                             .width(200.dp))
                 }
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(modifier = modifier.padding(bottom = 5.dp).height(50.dp)) {
+                    Row(modifier = modifier
+                        .padding(bottom = 5.dp)
+                        .height(50.dp)) {
                         if (enemy.requirements[0] > 0)
                             EnemyRequirement(requirement = enemy.requirements[0],
                                 category = 0,
-                                modifier = Modifier.padding(end = 5.dp)
+                                modifier = Modifier
+                                    .padding(end = 5.dp)
                                     .clip(RoundedCornerShape(10.dp))
                                     .border(1.dp, Color.Black, RoundedCornerShape(10.dp)))
                         if (enemy.requirements[1] > 0)
                             EnemyRequirement(requirement = enemy.requirements[1],
                                 category = 1,
-                                modifier = Modifier.padding(end = 5.dp)
+                                modifier = Modifier
+                                    .padding(end = 5.dp)
                                     .clip(RoundedCornerShape(10.dp))
                                     .border(1.dp, Color.Black, RoundedCornerShape(10.dp)))
                     }
@@ -280,19 +308,23 @@ fun Dashboard( modifier: Modifier = Modifier,
                         if (enemy.requirements[2] > 0)
                             EnemyRequirement(requirement = enemy.requirements[2],
                                 category = 2,
-                                modifier = Modifier.padding(end = 5.dp)
+                                modifier = Modifier
+                                    .padding(end = 5.dp)
                                     .clip(RoundedCornerShape(10.dp))
                                     .border(1.dp, Color.Black, RoundedCornerShape(10.dp)))
                         if (enemy.requirements[3] > 0)
                             EnemyRequirement(requirement = enemy.requirements[3],
                                 category = 3,
-                                modifier = Modifier.padding(end = 5.dp)
+                                modifier = Modifier
+                                    .padding(end = 5.dp)
                                     .clip(RoundedCornerShape(10.dp))
                                     .border(1.dp, Color.Black, RoundedCornerShape(10.dp)))
                     }
                 }
             }
-            QuestList(quests = quests)
+            QuestList(quests = quests,
+                selectedQuest = selectedQuestIndex,
+                navigate = { navController.navigate("ViewQuest") })
         }
         Box(modifier = Modifier.fillMaxSize()) {
             FloatingActionButton(
@@ -363,7 +395,9 @@ fun EnemyRequirement(requirement: Int, category: Int, modifier: Modifier = Modif
         Row(verticalAlignment = Alignment.CenterVertically) {
             StarImage(1, modifier = Modifier.weight(2f))
             Text("$requirement",
-                modifier = Modifier.padding(end = 5.dp).weight(1f),
+                modifier = Modifier
+                    .padding(end = 5.dp)
+                    .weight(1f),
                 style = TextStyle(fontSize = 24.sp))
         }
     }
@@ -460,13 +494,20 @@ fun StarImage( num: Int, modifier: Modifier = Modifier ) {
 
 @Composable
 fun QuestList( modifier: Modifier = Modifier,
-               quests: List<Quest> = List(0) { Quest() } //= List(20) { Quest() }
+               quests: List<Quest> = List(0) { Quest() },
+               selectedQuest: MutableState<Int>,
+               navigate: (String) -> Unit
 ) {
     // Display each quest to the user
     if (quests.isNotEmpty()) {
         LazyColumn(modifier = modifier.padding(vertical = 4.dp, horizontal = 4.dp)) {
-            items(items = quests) { quest ->
-                Quest(quest = quest)
+            itemsIndexed(items = quests) { index, quest ->
+                Box(modifier = Modifier.clickable {
+                    selectedQuest.value = index
+                    navigate("ViewQuest")
+                }) {
+                    Quest(quest = quest)
+                }
             }
         }
     } else {
@@ -474,7 +515,8 @@ fun QuestList( modifier: Modifier = Modifier,
         Box(modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            Text("You have no quests right now")
+            Text("You have no quests right now",
+                style = TextStyle(fontSize = 24.sp))
         }
     }
 }
@@ -619,7 +661,13 @@ fun NewQuest( modifier: Modifier = Modifier,
 }
 
 @Composable
-fun ViewQuest(modifier: Modifier = Modifier/*, navController: NavHostController*/, quest: Quest) {
+fun ViewQuest(modifier: Modifier = Modifier,
+              navController: NavHostController,
+              quest: Quest,
+              enemy: Enemy,
+              questList: MutableList<Quest>,
+              questIndex: MutableState<Int>
+) {
     val context = LocalContext.current
     val categories = CatagoryColors(context)
 
@@ -638,17 +686,29 @@ fun ViewQuest(modifier: Modifier = Modifier/*, navController: NavHostController*
                     .padding(16.dp)
                     .fillMaxWidth())
 
-            // Quest name display
-            Text(text = quest.name,
-                modifier = modifier
-                    .padding(3.dp)
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(colorResource(id = R.color.creamFill)))
+            // Display quest notes
+            Column() {
+                Text("Quest Name:", modifier = Modifier.padding(bottom = 3.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colorResource(id = R.color.creamFill))
+                ) {
+                    Text(
+                        text = quest.name,
+                        modifier = modifier
+                            .padding(10.dp)
+                            .fillMaxWidth(),
+                        style = TextStyle(fontSize = 18.sp)
+                    )
+                }
+            }
 
-            // Slider Row
+            // Quest weight and category
             Surface(color = colorResource(id = R.color.creamFill),
-                modifier = modifier.clip(RoundedCornerShape(15.dp))
+                modifier = modifier
+                    .clip(RoundedCornerShape(15.dp))
+                    .fillMaxWidth()
             ) {
                 Row(modifier = modifier.padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -662,55 +722,90 @@ fun ViewQuest(modifier: Modifier = Modifier/*, navController: NavHostController*
                             .clip(CircleShape)
                             .border(1.dp, Color.Black, CircleShape))
                     }
+                    Column(verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(start = 16.dp)) {
+                        Text(text = "Quest Weight: ${quest.weight}",
+                            modifier = Modifier.padding(bottom = 10.dp),
+                            fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "Category: ",
+                                fontWeight = FontWeight.Bold)
+                            Box( modifier = modifier
+                                .size(height = 25.dp, width = 50.dp)
+                                .background(
+                                    color = categories[quest.category],
+                                    RoundedCornerShape(20.dp)
+                                )
+                                .border(1.dp, Color.Black, RoundedCornerShape(20.dp))
+                                .clip(RoundedCornerShape(20.dp))
+                            )
+                        }
+                    }
                 }
             }
 
-            // Category boxes
-            Text("Category:")
+            // Display quest notes
+            Column() {
+                Text("Notes:", modifier = Modifier.padding(bottom = 3.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colorResource(id = R.color.creamFill))
+                ) {
+                    Text(
+                        text = quest.notes,
+                        modifier = modifier
+                            .padding(5.dp)
+                            .fillMaxWidth()
+                            .heightIn(min = 100.dp)
+                    )
+                }
+            }
 
-            // Notes text field
-            Text(text = quest.notes,
-                modifier = modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(colorResource(id = R.color.creamFill)))
-
-            // Return and Save buttons
+            // Return, Complete, and Save buttons
             Spacer(modifier = modifier.weight(1f))
             Row( modifier = modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.Center, ) {
-                LargeFloatingActionButton(onClick = {
-                    //navController.popBackStack()
-                                                    },
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.Bottom) {
+                FloatingActionButton(onClick = { navController.popBackStack() },
                     modifier = modifier
                         .clip(CircleShape)
                         .border(2.dp, Color.Black, CircleShape),
                     containerColor = colorResource(id = R.color.greyFill)) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back",
+                        modifier = modifier.scale(1.5f))
+                }
+
+                Spacer( modifier = modifier.width(30.dp) )
+                LargeFloatingActionButton(onClick = {
+                    enemy.updateRequirement(quest.weight, quest.category)
+                    questList.removeAt(questIndex.value)
+                    navController.popBackStack("Dashboard", false)
+                },
+                    modifier = modifier
+                        .clip(CircleShape)
+                        .border(2.dp, Color.Black, CircleShape),
+                    containerColor = colorResource(id = R.color.category2)) {
+                    Icon(Icons.Default.DoneOutline, contentDescription = "Complete",
                         modifier = modifier.scale(2f))
                 }
-                Spacer( modifier = modifier.width(45.dp))
-                LargeFloatingActionButton(onClick = {
-                    //navController.popBackStack()
+
+                Spacer( modifier = modifier.width(30.dp))
+                FloatingActionButton(onClick = {
+                    navController.navigate("NewQuest")
                     },
                     modifier = modifier
                         .clip(CircleShape)
                         .border(2.dp, Color.Black, CircleShape),
                     containerColor = colorResource(id = R.color.greyFill)) {
-                    Icon(Icons.Default.Save, contentDescription = "Save",
-                        modifier = modifier.scale(2f))
+                    Icon(Icons.Default.Edit, contentDescription = "Edit",
+                        modifier = modifier.scale(1.5f))
                 }
             }
         }
     }
-}
-
-@Preview
-@Composable
-fun ViewQuestPreview() {
-    ViewQuest( quest = Quest() )
 }
 
 //@Composable
