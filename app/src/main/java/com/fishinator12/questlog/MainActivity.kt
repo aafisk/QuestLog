@@ -91,6 +91,7 @@ import androidx.navigation.compose.rememberNavController
 import com.fishinator12.questlog.ui.theme.QuestLogTheme
 import kotlinx.coroutines.delay
 import kotlin.random.Random
+import com.google.gson.Gson
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -122,7 +123,7 @@ class Quest(var name: String = "", var category: Int = 1,
 
 class Character() {
     var level = 1
-    var experience = 15
+    var experience = 0
 
     fun AddExperience(exp: Int) {
         if (experience + exp > 50) {
@@ -178,14 +179,51 @@ fun CatagoryColors(context: Context): List<Color> {
     }
 }
 
+fun saveData(context: Context, character: Character, enemy: Enemy, questList: List<Quest>) {
+    val sharedPreferences = context.getSharedPreferences("CharacterProgress", Context.MODE_PRIVATE)
+    val editor = sharedPreferences.edit()
+
+    editor.putString("character", Gson().toJson(character))
+    editor.putString("enemy", Gson().toJson(enemy))
+    editor.putString("questList", Gson().toJson(questList))
+    editor.apply()
+}
+
+fun loadData(context: Context): Triple<Character, Enemy, List<Quest>> {
+    val sharedPreferences = context.getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE)
+
+    val characterJson = sharedPreferences.getString("character", null)
+    val enemyJson = sharedPreferences.getString("enemy", null)
+    val questListJson = sharedPreferences.getString("questList", null)
+
+    val character = if (characterJson != null) Gson().fromJson(characterJson, Character::class.java) else Character()
+    val enemy = if (enemyJson != null) Gson().fromJson(enemyJson, Enemy::class.java) else Enemy()
+    val questList = if (questListJson != null) Gson().fromJson(questListJson, Array<Quest>::class.java).toList() else listOf()
+
+    return Triple(character, enemy, questList)
+}
+
 @Composable
 fun QuestLog( modifier: Modifier = Modifier ) {
     val navController = rememberNavController()
     var questList = remember { mutableStateListOf<Quest>() }
     var character by remember { mutableStateOf(Character()) }
     var enemy by remember { mutableStateOf(Enemy()) }
-    var selectedQuestIndex = remember { mutableStateOf(0) }
-    var selectedQuest = if (questList.isNotEmpty()) questList[selectedQuestIndex.value] else null
+    var selectedQuestIndex = remember { mutableIntStateOf(0) }
+    val selectedQuest = remember { mutableStateOf<Quest?>(null) }
+
+    // Update the selectedQuest state when questList or selectedQuestIndex changes
+    LaunchedEffect(questList, selectedQuestIndex.intValue) {
+        selectedQuest.value = if (questList.isNotEmpty()) questList[selectedQuestIndex.intValue] else null
+    }
+
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        val (loadedCharacter, loadedEnemy, loadedQuestList) = loadData(context)
+        character = loadedCharacter
+        enemy = loadedEnemy
+        questList.addAll(loadedQuestList)
+    }
 
     NavHost(navController = navController, startDestination = "Dashboard") {
         composable("Dashboard") {
@@ -199,12 +237,14 @@ fun QuestLog( modifier: Modifier = Modifier ) {
         composable("NewQuest") {
             NewQuest(quest = Quest(),
                 navController = navController,
-                quests = questList)
+                quests = questList,
+                character = character,
+                enemy = enemy)
         }
 
         composable("ViewQuest") {
             if (selectedQuest != null) {
-                ViewQuest(quest = selectedQuest,
+                ViewQuest(
                     navController = navController,
                     enemy = enemy,
                     questList = questList,
@@ -533,7 +573,9 @@ fun QuestList( modifier: Modifier = Modifier,
 fun NewQuest( modifier: Modifier = Modifier,
               quest: Quest = Quest(),
               navController: NavHostController,
-              quests: MutableList<Quest>
+              quests: MutableList<Quest>,
+              character: Character,
+              enemy: Enemy
 ) {
     val context = LocalContext.current
     var questName by remember { mutableStateOf(quest.name) }
@@ -647,6 +689,7 @@ fun NewQuest( modifier: Modifier = Modifier,
                 Spacer( modifier = modifier.width(45.dp))
                 LargeFloatingActionButton(onClick = {
                     quests.add(Quest(questName, selectedCategory, weight, notes = questNotes))
+                    saveData(context, character, enemy, quests)
                     navController.popBackStack() },
                     modifier = modifier
                         .clip(CircleShape)
@@ -661,12 +704,12 @@ fun NewQuest( modifier: Modifier = Modifier,
 }
 
 @Composable
-fun ViewQuest(modifier: Modifier = Modifier,
-              navController: NavHostController,
-              quest: Quest,
-              enemy: Enemy,
-              questList: MutableList<Quest>,
-              questIndex: MutableState<Int>
+fun ViewQuest(
+    modifier: Modifier = Modifier,
+    navController: NavHostController,
+    enemy: Enemy,
+    questList: MutableList<Quest>,
+    questIndex: MutableState<Int>
 ) {
     val context = LocalContext.current
     val categories = CatagoryColors(context)
@@ -695,7 +738,7 @@ fun ViewQuest(modifier: Modifier = Modifier,
                         .background(colorResource(id = R.color.creamFill))
                 ) {
                     Text(
-                        text = quest.name,
+                        text = questList[questIndex.value].name,
                         modifier = modifier
                             .padding(10.dp)
                             .fillMaxWidth(),
@@ -713,18 +756,18 @@ fun ViewQuest(modifier: Modifier = Modifier,
                 Row(modifier = modifier.padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Surface(
-                        color = categories[quest.category],
+                        color = categories[questList[questIndex.value].category],
                         modifier = Modifier
                             .size(75.dp)
                             .clip(CircleShape)
                     ) {
-                        StarImage(quest.weight, modifier = modifier
+                        StarImage(questList[questIndex.value].weight, modifier = modifier
                             .clip(CircleShape)
                             .border(1.dp, Color.Black, CircleShape))
                     }
                     Column(verticalArrangement = Arrangement.Center,
                         modifier = Modifier.padding(start = 16.dp)) {
-                        Text(text = "Quest Weight: ${quest.weight}",
+                        Text(text = "Quest Weight: ${questList[questIndex.value].weight}",
                             modifier = Modifier.padding(bottom = 10.dp),
                             fontWeight = FontWeight.Bold)
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -733,7 +776,7 @@ fun ViewQuest(modifier: Modifier = Modifier,
                             Box( modifier = modifier
                                 .size(height = 25.dp, width = 50.dp)
                                 .background(
-                                    color = categories[quest.category],
+                                    color = categories[questList[questIndex.value].category],
                                     RoundedCornerShape(20.dp)
                                 )
                                 .border(1.dp, Color.Black, RoundedCornerShape(20.dp))
@@ -753,7 +796,7 @@ fun ViewQuest(modifier: Modifier = Modifier,
                         .background(colorResource(id = R.color.creamFill))
                 ) {
                     Text(
-                        text = quest.notes,
+                        text = questList[questIndex.value].notes,
                         modifier = modifier
                             .padding(5.dp)
                             .fillMaxWidth()
@@ -780,7 +823,7 @@ fun ViewQuest(modifier: Modifier = Modifier,
 
                 Spacer( modifier = modifier.width(30.dp) )
                 LargeFloatingActionButton(onClick = {
-                    enemy.updateRequirement(quest.weight, quest.category)
+                    enemy.updateRequirement(questList[questIndex.value].weight, questList[questIndex.value].category)
                     questList.removeAt(questIndex.value)
                     navController.popBackStack("Dashboard", false)
                 },
