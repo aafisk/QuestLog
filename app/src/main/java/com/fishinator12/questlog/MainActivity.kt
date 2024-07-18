@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.os.Parcelable
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -156,11 +157,17 @@ class Enemy() {
 
     fun updateRequirement(number: Int, index: Int) {
         requirements[index] = requirements[index] - number
-        alive = checkRequirements()
+        alive = !checkRequirements()
     }
 
     private fun checkRequirements(): Boolean {
         return requirements.all { it <= 0 }
+    }
+
+    fun revive() {
+        requirements = MutableList(4) { Random.nextInt(0, 8) }
+        exp = Random.nextInt(5, 16)
+        alive = true
     }
 }
 
@@ -190,7 +197,7 @@ fun saveData(context: Context, character: Character, enemy: Enemy, questList: Li
 }
 
 fun loadData(context: Context): Triple<Character, Enemy, List<Quest>> {
-    val sharedPreferences = context.getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE)
+    val sharedPreferences = context.getSharedPreferences("CharacterProgress", Context.MODE_PRIVATE)
 
     val characterJson = sharedPreferences.getString("character", null)
     val enemyJson = sharedPreferences.getString("enemy", null)
@@ -235,7 +242,7 @@ fun QuestLog( modifier: Modifier = Modifier ) {
         }
 
         composable("NewQuest") {
-            NewQuest(quest = Quest(),
+            NewQuest(currentQuest = selectedQuest,
                 navController = navController,
                 quests = questList,
                 character = character,
@@ -247,6 +254,7 @@ fun QuestLog( modifier: Modifier = Modifier ) {
                 ViewQuest(
                     navController = navController,
                     enemy = enemy,
+                    character = character,
                     questList = questList,
                     questIndex = selectedQuestIndex)
             }
@@ -309,7 +317,6 @@ fun Dashboard( modifier: Modifier = Modifier,
                 contentScale = ContentScale.FillWidth
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // TODO Add character stats and monster requirements
                 // Image() {}
                 Column(modifier = Modifier.padding(horizontal = 10.dp)){
                     Text("Aaron",
@@ -571,16 +578,18 @@ fun QuestList( modifier: Modifier = Modifier,
 
 @Composable
 fun NewQuest( modifier: Modifier = Modifier,
-              quest: Quest = Quest(),
+              currentQuest: MutableState<Quest?>,
               navController: NavHostController,
               quests: MutableList<Quest>,
               character: Character,
               enemy: Enemy
 ) {
+    var quest = currentQuest.value ?: Quest()
+    val newQuest = quest.name == "" && quest.weight == 1
     val context = LocalContext.current
     var questName by remember { mutableStateOf(quest.name) }
     var weight by remember { mutableIntStateOf(quest.weight) }
-    var selectedCategory by remember { mutableIntStateOf(quest.category - 1) }
+    var selectedCategory by remember { mutableIntStateOf(if (newQuest) quest.category - 1 else quest.category) }
     var questNotes by remember { mutableStateOf(quest.notes) }
     val categories = CatagoryColors(context)
 
@@ -600,7 +609,9 @@ fun NewQuest( modifier: Modifier = Modifier,
                     .fillMaxWidth())
 
             // Quest name text field
-            TextField(value = questName, onValueChange = { questName = it },
+            TextField(value = questName, onValueChange = {
+                questName = it
+                quest.name = it },
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = colorResource(id = R.color.creamFill),
                     unfocusedContainerColor = colorResource(id = R.color.creamFill)
@@ -654,6 +665,7 @@ fun NewQuest( modifier: Modifier = Modifier,
                         .clip(RoundedCornerShape(20.dp))
                         .clickable {
                             selectedCategory = i
+                            quest.category = i
                         }
                     )
                 }
@@ -669,7 +681,9 @@ fun NewQuest( modifier: Modifier = Modifier,
                     .fillMaxWidth()
                     .height(150.dp)
                     .clip(RoundedCornerShape(10.dp)),
-                onValueChange = { questNotes = it },
+                onValueChange = {
+                    questNotes = it
+                    quest.notes = it},
                 placeholder = { Text("Notes...") })
 
             // Return and Save buttons
@@ -678,7 +692,9 @@ fun NewQuest( modifier: Modifier = Modifier,
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
                 horizontalArrangement = Arrangement.Center, ) {
-                LargeFloatingActionButton(onClick = { navController.popBackStack() },
+                LargeFloatingActionButton(onClick = {
+                    navController.popBackStack()
+                                                    },
                     modifier = modifier
                         .clip(CircleShape)
                         .border(2.dp, Color.Black, CircleShape),
@@ -688,7 +704,9 @@ fun NewQuest( modifier: Modifier = Modifier,
                 }
                 Spacer( modifier = modifier.width(45.dp))
                 LargeFloatingActionButton(onClick = {
-                    quests.add(Quest(questName, selectedCategory, weight, notes = questNotes))
+                    if (newQuest) {
+                        quests.add(Quest(questName, selectedCategory, weight, notes = questNotes))
+                    }
                     saveData(context, character, enemy, quests)
                     navController.popBackStack() },
                     modifier = modifier
@@ -707,6 +725,7 @@ fun NewQuest( modifier: Modifier = Modifier,
 fun ViewQuest(
     modifier: Modifier = Modifier,
     navController: NavHostController,
+    character: Character,
     enemy: Enemy,
     questList: MutableList<Quest>,
     questIndex: MutableState<Int>
@@ -823,9 +842,17 @@ fun ViewQuest(
 
                 Spacer( modifier = modifier.width(30.dp) )
                 LargeFloatingActionButton(onClick = {
+                    Log.d("enemy requirements - ", "${enemy.requirements}")
+                    Log.d("quest index - ", "${questIndex.value}")
                     enemy.updateRequirement(questList[questIndex.value].weight, questList[questIndex.value].category)
                     questList.removeAt(questIndex.value)
-                    navController.popBackStack("Dashboard", false)
+                    if (!enemy.alive){
+                        Log.d("before Revive called", "before Revive called")
+                        enemy.revive()
+                        Log.d("after Revive called", "after Revive called")
+                    }
+                    saveData(context, character, enemy, questList)
+                    navController.popBackStack()
                 },
                     modifier = modifier
                         .clip(CircleShape)
