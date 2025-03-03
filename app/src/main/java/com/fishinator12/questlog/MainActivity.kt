@@ -279,6 +279,8 @@ fun Dashboard( modifier: Modifier = Modifier,
                selectedQuestIndex: MutableState<Int?>
 ) {
     //selectedQuestIndex.value = null
+
+    // Background landscape image
     Surface(color = colorResource(id =  R.color.tan)) {
         Box(modifier = modifier.fillMaxSize()) {
             Image(
@@ -290,6 +292,8 @@ fun Dashboard( modifier: Modifier = Modifier,
                 contentScale = ContentScale.FillWidth
             )
         }
+
+        // Animated sprites
         Column() {
             Spacer(modifier = modifier.height(150.dp))
             Row(modifier = modifier.fillMaxWidth(),
@@ -318,6 +322,8 @@ fun Dashboard( modifier: Modifier = Modifier,
                 modifier = modifier.fillMaxWidth(),
                 contentScale = ContentScale.FillWidth
             )
+
+            // Player info and enemy requirement bar
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Image() {}
                 Column(modifier = Modifier.padding(horizontal = 10.dp)){
@@ -334,6 +340,8 @@ fun Dashboard( modifier: Modifier = Modifier,
                             .border(1.dp, Color.Black, RoundedCornerShape(5.dp))
                             .width(200.dp))
                 }
+
+                // Enemy requirements
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(modifier = modifier
                         .padding(bottom = 5.dp)
@@ -371,11 +379,15 @@ fun Dashboard( modifier: Modifier = Modifier,
                     }
                 }
             }
+
+            // List of quests
             QuestList(
                 quests = quests,
                 selectedQuest = selectedQuestIndex,
                 navigate = { navController.navigate("ViewQuest") })
         }
+
+        // New quest button
         Box(modifier = Modifier.fillMaxSize()) {
             FloatingActionButton(
                 onClick = { selectedQuestIndex.value = null
@@ -398,11 +410,14 @@ fun DashboardPreview() {
 //    Dashboard(onNewClicked = {showNewQuest = true})
 }
 
+
+// A quest to be displayed in the quest list on the dashboard
 @Composable
 fun Quest( quest: Quest, modifier: Modifier = Modifier ) {
     val context = LocalContext.current
     val categories = CatagoryColors(context)
 
+    // Background surface
     Surface(color = colorResource(id =  R.color.greyFill),
         modifier = modifier
             .padding(vertical = 3.dp)
@@ -420,9 +435,13 @@ fun Quest( quest: Quest, modifier: Modifier = Modifier ) {
 //                Text("Sep. 3")
 //                Text("12:00 PM")
 //            }
+            
+            // Quest text
             Text(quest.name, modifier = modifier
                 .weight(3.75f)
                 .padding(start = 12.dp))
+
+            // Stars and category
             Surface(color = categories[quest.category], modifier = modifier.weight(0.8f)) {
                 StarImage(quest.weight)
             }
@@ -438,6 +457,8 @@ fun QuestPreview() {
     }
 }
 
+
+// The enemy requirement to be used on the dashboard
 @Composable
 fun EnemyRequirement(requirement: Int, category: Int, modifier: Modifier = Modifier) {
     val categories = CatagoryColors(LocalContext.current)
@@ -460,6 +481,8 @@ fun EnemyRequirementPreview() {
     EnemyRequirement(requirement = 6, category = 2)
 }
 
+
+// Animate a sprite using a tilemap
 @Composable
 fun AnimatedSprite(tilemapId: Int, frames: Int, frameLength: Int, tileSize: Int, imageSizeDP: Int,
                    flipSprite: Boolean = false, modifier: Modifier = Modifier) {
@@ -730,6 +753,7 @@ fun checkQuestListSize(questList: MutableList<Quest>, questIndex: MutableState<I
     return (questList.isNotEmpty() && questList.size > questIndex.value!!)
 }
 
+// TODO move this into the quest class
 @Composable
 fun ViewQuest(
     modifier: Modifier = Modifier,
